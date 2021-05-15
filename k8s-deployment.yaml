@@ -1,42 +1,59 @@
 ---
-  apiVersion: "apps/v1"
-  kind: "Deployment"
-  metadata:
-    name: "live-import-map-deployer"
-    namespace: "default"
-    labels:
+apiVersion: "apps/v1"
+kind: "Deployment"
+metadata:
+  name: "live-import-map-deployer"
+  namespace: "kpmg"
+  labels:
+    app: "live-import-map-deployer"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
       app: "live-import-map-deployer"
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
+  template:
+    metadata:
+      labels:
         app: "live-import-map-deployer"
-    template:
-      metadata:
-        labels:
-          app: "live-import-map-deployer"
-      spec:
-        containers:
-        - name: "live-import-map-deployer-sha256"
-          image: "us.gcr.io/neural-passkey-248222/live-import-map-deployer@sha256:3e243d585360e81a347c9299a075dddea7450cd7520a0d876908c1034204742f"
-  ---
-  apiVersion: "autoscaling/v2beta1"
-  kind: "HorizontalPodAutoscaler"
-  metadata:
-    name: "live-import-map-deployer-hpa"
-    namespace: "default"
-    labels:
-      app: "live-import-map-deployer"
-  spec:
-    scaleTargetRef:
-      kind: "Deployment"
-      name: "live-import-map-deployer"
-      apiVersion: "apps/v1"
-    minReplicas: 1
-    maxReplicas: 1
-    metrics:
-    - type: "Resource"
-      resource:
-        name: "cpu"
-        targetAverageUtilization: 80
-  
+    spec:
+      containers:
+      - name: "live-import-map-deployer-sha256"
+        image: "eu.gcr.io/e-shop-microservices/import-map-deployer@sha256:7f5fc9e4ff8d8b6526984f2193c3667cf3765ff6793185bc7a7eec86852cdb8e"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: import-map-deployer
+  namespace: "kpmg"
+spec:
+  type: ClusterIP
+  selector:
+    app: "live-import-map-deployer"
+  ports:
+  - name: http
+    port: 80
+    targetPort: 5000
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: import-map-deployer
+  namespace: "kpmg"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - deployer.kpmg.bcgplatinion.io
+    secretName: shop-tls
+  rules:
+  - host: deployer.kpmg.bcgplatinion.io
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: import-map-deployer
+          servicePort: 5000
+ 
